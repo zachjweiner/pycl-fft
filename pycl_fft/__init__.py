@@ -58,9 +58,9 @@ Namely, :func:`rfftn` assumes that the length of the last axis of the input (rea
 array is two longer than that of the transform to be performed, and :func:`irfftn`
 returns a real array with last axis two longer than strictly needed to hold the
 actual output.
-Consult the :mod:`VkFFT` or :mod:`clFFT` documentation for further details.
+Consult the |vkfft|_ or |clfft|_ documentation for further details.
 
-Both the :mod:`VkFFT` and :mod:`clFFT` backends are supported, which one may choose
+Both the |vkfft|_ and |clfft|_ backends are supported, which one may choose
 between by passing ``backend="vkfft"`` (the default) or ``backend="clfft"``.
 
 .. autofunction:: fftn

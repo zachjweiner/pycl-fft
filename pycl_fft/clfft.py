@@ -144,7 +144,7 @@ Plans
 .. class:: SetupData
 
     Wrapper to :class:`clfftSetupData`; one is automatically created at module
-    import (meaning the required initialization of the :mod:`clFFT` API
+    import (meaning the required initialization of the |clfft|_ API
     is performed automatically).
 
 .. function:: teardown
@@ -160,7 +160,7 @@ Constants
 
     :class:`enum` of possible status codes returned by CLFFT.
     Extends the standard set of OpenCL status codes (refer to
-    :class:`pyopencl.status_code`) to include the following (see the :mod:`clFFT`
+    :class:`pyopencl.status_code`) to include the following (see the |clfft|_
     documentation for further explanation).
 
     .. attribute:: BUGCHECK
@@ -251,16 +251,26 @@ class Plan(_Plan):
             Defaults to *None* (for in-place transforms).
 
         :arg temp: A :class:`pyopencl.array.Array` for temporary/scratch usage
-            by :mod:`clFFT`.
-            Defaults to *None* (in which case :mod:`clFFT` allocates when needed).
+            by |clfft|_.
+            Defaults to *None* (in which case |clfft|_ allocates when needed).
 
         The ``queues`` are determined by those attached to each ``input``, and
         all of their :attr:`~pyopencl.array.Array.events` are passed
         to ``wait_for``.
 
-        :returns: A :class:`list` of :class:`pyopencl.Events`, one per
+        :returns: A :class:`list` of :class:`pyopencl.Event`\\ s, one per
             passed :class:`pyopencl.CommandQueue`.
-        """
+
+        .. note::
+
+            Array offsets are allowed, but are handled via
+            `subbuffers <https://www.khronos.org/registry/OpenCL/sdk/3.0/docs/man/html/clCreateSubBuffer.html>`_,
+            which are subject to constraints on allowed offset values.
+            In rare cases (offsets in bytes not divisible by 128 to 512 or so, for
+            example in 1D real-to-complex transforms) this may raise a
+            :attr:`~pyopencl.status_code.MISALIGNED_SUB_BUFFER_OFFSET` error.
+
+        """  # noqa: E501
 
         if isinstance(input, cla.Array):
             input = [input]
@@ -279,8 +289,11 @@ class Plan(_Plan):
         temp_buffer = None if temp is None else temp.data
         direction = Direction.FORWARD if forward else Direction.BACKWARD
 
-        events = self.enqueue_transform(
-            direction, queues, wait_for, inputs, outputs, temp_buffer)
+        try:
+            events = self.enqueue_transform(
+                direction, queues, wait_for, inputs, outputs, temp_buffer)
+        except RuntimeError as e:
+            raise RuntimeError(Status(int(e.args[0])).name)
 
         for ary, evt in zip(input, events):
             ary.add_event(evt)
@@ -298,6 +311,10 @@ class Plan(_Plan):
             self.destroy()
 
 
+def to_no_offset(ary):
+    return ary._new_with_changes(data=ary.base_data[ary.offset:], offset=0)
+
+
 @lru_cache
 class Transform:
     """
@@ -309,7 +326,7 @@ class Transform:
     :arg dtype: The datatype of the input to the forward transform.
 
     :arg type: Which type of transform to implement.
-        Valid options are ``"c2c"``, ``"r2c"``, or ``"c2r"`` (:mod:`clFFT` does not
+        Valid options are ``"c2c"``, ``"r2c"``, or ``"c2r"`` (|clfft|_ does not
         support discrete cosine transforms).
         Note that out-of-place real-to-complex and complex-to-real transforms
         require separate :class:`~pycl_fft.clfft.Plan`\\ s because the
@@ -418,7 +435,7 @@ class Transform:
 
         .. note::
 
-            If a temporary buffer is required by :mod:`clFFT`, it will allocate
+            If a temporary buffer is required by |clfft|_, it will allocate
             and manage one itself if it is not supplied via ``temp``.
         """
 
@@ -434,10 +451,16 @@ class Transform:
                 #             "Transform.__call__() missing argument buffer that is"
                 #             "required for out-of-place c2r transforms.")
 
-        if input.offset != 0 or output.offset != 0:
-            raise ValueError("clFFT does not support offsets.")
+        if input.offset != 0:
+            _input = to_no_offset(input)
+        else:
+            _input = input
+        if output is not None and output.offset != 0:
+            _output = to_no_offset(output)
+        else:
+            _output = output
 
-        self.plan(forward, input, output, temp)
+        self.plan(forward, _input, _output, temp)
 
         return input if self.in_place else output  # FIXME: no return?
 

@@ -4,8 +4,8 @@ Low-level wrapper to VkFFT
 
 .. currentmodule:: pycl_fft
 
-The :mod:`pycl_fft.vkfft` module provides a (nearly) one-to-one wrapper of the :mod:`VkFFT` API.
-Consult the :mod:`VkFFT` documentation for details; the below simply documents the relationship between the Python wrapper and the :mod:`VkFFT` API.
+The :mod:`pycl_fft.vkfft` module provides a (nearly) one-to-one wrapper of the |vkfft|_ API.
+Consult the |vkfft|_ documentation for details; the below simply documents the relationship between the Python wrapper and the |vkfft|_ API.
 
 The names of classes and methods omit "VkFFT" and conform to PEP-8.
 For ease of wrapping (and cross-referencing with the VkFFT documentation), all attribute names are unchanged (and so often do not conform to PEP-8).

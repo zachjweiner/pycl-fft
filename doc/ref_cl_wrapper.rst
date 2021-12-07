@@ -4,12 +4,12 @@ Low-level wrapper to clFFT
 
 .. currentmodule:: pycl_fft
 
-The :mod:`pycl_fft.clfft` module provides a (nearly) one-to-one wrapper of the :mod:`clFFT` API.
+The :mod:`pycl_fft.clfft` module provides a (nearly) one-to-one wrapper of the |clfft|_ API.
 The names of classes and methods omit "clFFT" and conform to PEP-8; the correspondence between :class:`~pycl_fft.clfft.Plan` parameters and :func:`clfftSetPlan*` and :func:`clfftGetPlan*`
 methods should be apparent (but is documented below).
 Simply set (and get) parameters as normal Python class attributes.
-(:mod:`clFFT` methods that set two parameters at once, e.g., input and output layouts, have been wrapped accordingly.)
-Consult the :mod:`clFFT` documentation for further details.
+(|clfft|_ methods that set two parameters at once, e.g., input and output layouts, have been wrapped accordingly.)
+Consult the |clfft|_ documentation for further details.
 
 Currently, plan copying (:func:`clfftCopyPlan`) and callbacks (:func:`clfftSetPlanCallback`)
 are unimplemented.

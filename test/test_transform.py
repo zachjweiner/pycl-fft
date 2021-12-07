@@ -42,7 +42,7 @@ types = ["c2c", "r2c", 1, 2, 3, 4]
 _vkfft_types = [("vkfft", typ) for typ in types]
 backends_types = [("clfft", typ) for typ in ("c2c", "r2c")] + _vkfft_types
 shapes = [
-    (128,),
+    (128,),  # any smaller and sometimes cannot create subbuffer for offset
     # (2176,),
     # (4096,),
     (64, 64),
@@ -121,16 +121,26 @@ def test_transforms(ctx_factory, shape, precision, type, backend):
     max_rtol = 1e-14 if precision == "double" else 1e-6
     avg_rtol = 1e-15 if precision == "double" else 1e-7
 
-    if backend == "vkfft":
-        for ix in range(x.shape[0]):
-            for iy in range(y.shape[0]):
-                x[:] = 0
-                y[:] = 0
-                x[ix] = x_h
-                _ = forward(x[ix], y[iy], **call_kwargs)
-                max_err, avg_err = get_rerr(y_h, y[iy].get())
-                assert avg_err < avg_rtol, avg_err
-                assert max_err < max_rtol, max_err
+    def offset_aligned(ary):
+        align = ctx.devices[0].mem_base_addr_align // 8
+        return ary.offset % align == 0
+
+    def invalid_offset_check(x, y):
+        return backend == "clfft" and not (offset_aligned(x) and offset_aligned(y))
+
+    for ix in range(x.shape[0]):
+        for iy in range(y.shape[0]):
+            x[:] = 0
+            y[:] = 0
+            x[ix] = x_h
+
+            if invalid_offset_check(x[ix], y[iy]):
+                continue
+
+            _ = forward(x[ix], y[iy], **call_kwargs)
+            max_err, avg_err = get_rerr(y_h, y[iy].get())
+            assert avg_err < avg_rtol, avg_err
+            assert max_err < max_rtol, max_err
 
     # test in-place
     slc = [slice(None)]*len(shape)
@@ -178,16 +188,19 @@ def test_transforms(ctx_factory, shape, precision, type, backend):
     max_rtol = 1e-14 if precision == "double" else 1e-5
     avg_rtol = 1e-15 if precision == "double" else 1e-6
 
-    if backend == "vkfft":
-        for ix in range(x.shape[0]):
-            for iy in range(y.shape[0]):
-                x[:] = 0
-                y[:] = 0
-                y[iy] = y_h
-                _ = backward(y[iy], x[ix], **call_kwargs)
-                max_err, avg_err = get_rerr(x_h, x[ix].get())
-                assert max_err < max_rtol, max_err
-                assert avg_err < avg_rtol, avg_err
+    for ix in range(x.shape[0]):
+        for iy in range(y.shape[0]):
+            x[:] = 0
+            y[:] = 0
+            y[iy] = y_h
+
+            if invalid_offset_check(x[ix], y[iy]):
+                continue
+
+            _ = backward(y[iy], x[ix], **call_kwargs)
+            max_err, avg_err = get_rerr(x_h, x[ix].get())
+            assert max_err < max_rtol, max_err
+            assert avg_err < avg_rtol, avg_err
 
     # test in-place
     x_pad[...] = y_h

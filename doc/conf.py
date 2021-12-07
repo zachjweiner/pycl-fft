@@ -140,3 +140,12 @@ def linkcode_resolve(domain, info):
 import pycl_fft
 pycl_fft.clfft.Transform = pycl_fft.clfft.Transform.__wrapped__
 pycl_fft.vkfft.Transform = pycl_fft.vkfft.Transform.__wrapped__
+
+rst_prolog = """
+.. |vkfft| replace:: :mod:`VkFFT`
+.. _vkfft: https://github.com/DTolm/VkFFT
+.. |clfft| replace:: :mod:`clFFT`
+.. _clfft: https://github.com/clMathLibraries/clFFT
+.. |scipy| replace:: :mod:`scipy`
+.. _scipy: https://docs.scipy.org/doc/scipy/reference/
+"""
