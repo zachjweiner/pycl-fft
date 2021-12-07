@@ -23,22 +23,26 @@ Here's a complete example of a 3-D, double-precision, in-place, complex-to-compl
 
     context = cl.create_some_context()
     shape = (64, 48, 27)
-    plan = clf.Plan(context, len(shape), shape)
-
+    plan = clf.Plan(context, len(shape), shape[::-1])
     plan.precision = clf.Precision.DOUBLE
 
-    x = np.random.rand(*shape) + 1j * np.random.rand(*shape)
+    rng = np.random.default_rng()
+    buf_h = rng.random(shape) + 1j * rng.random(shape)
 
-    # clfft seems to work with column-major strides, so set them manually
-    strides = np.array(x.strides) // x.itemsize
-    plan.input_strides = strides
-    plan.output_strides = strides
+    strides = np.array(buf_h.strides) // buf_h.itemsize
+    plan.input_strides = strides[::-1]
+    plan.output_strides = strides[::-1]
 
     queue = cl.CommandQueue(context)
-    plan.bake([queue])
+    plan.bake(queue)
 
-    ary = cla.to_device(queue, x)
-    plan(True, ary)
+    buf = cla.to_device(queue, buf_h)
+    plan(True, buf)
 
+    assert np.max(np.abs(buf.get() / np.fft.fftn(buf_h) - 1)) < 1e-12
+
+As apparent in the above example, |clfft|_ specifies plan sizes and array strides in the reverse order of (C-style, row-major) array shapes.
+(This is an artifact of using pointers to C arrays for inputs that can vary in length and maintaining that the first entry denote the contiguous array axis for transforms of any dimension.)
+Outside of the low-level wrapper, :mod:`pycl_fft` adheres to :mod:`numpy`-like semantics, and :class:`~pycl_fft.clfft.Transform` handles this translation automatically.
 
 .. automodule:: pycl_fft.clfft

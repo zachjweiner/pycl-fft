@@ -42,7 +42,7 @@ types = ["c2c", "r2c", 1, 2, 3, 4]
 _vkfft_types = [("vkfft", typ) for typ in types]
 backends_types = [("clfft", typ) for typ in ("c2c", "r2c")] + _vkfft_types
 shapes = [
-    (128,),  # any smaller and sometimes cannot create subbuffer for offset
+    (128,),
     # (2176,),
     # (4096,),
     (64, 64),
@@ -92,9 +92,12 @@ def test_transforms(ctx_factory, shape, precision, type, backend):
 
     print(f"{type=}, dtype={dtype.name}, {shape=}, {backend=}")
 
-    x_h = np.random.rand(*shape).astype(dtype)
-    if type == "c2c":
-        x_h += 1j * np.random.rand(*shape)
+    from numpy.random import default_rng
+    rng = default_rng()
+
+    x_h = rng.random(shape).astype(dtype)
+    if dtype.kind == "c":
+        x_h += 1j * (rng.random(shape).astype(dtype))
     y_h = scipy_forward(x_h, **call_kwargs, norm="backward")
 
     x = cla.empty(queue, (3,)+shape, dtype)

@@ -15,10 +15,12 @@ functionality differ.
 
 .. note::
 
-    :class:`Transform`\ s are cached using :func:`functools.lru_cache`:
+    Transform class instances are cached using :func:`functools.lru_cache`:
     for each call pattern (i.e., set of arguments passed and their values)
     only one :class:`~pycl_fft.vkfft.Application` or
     :class:`~pycl_fft.clfft.Plan` and one :class:`Transform` is created.
+    Therefore, using the `High-level interface`_ should come with a negligible
+    performance penalty.
 
 .. autoclass:: pycl_fft.vkfft.Transform
 

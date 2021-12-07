@@ -47,12 +47,18 @@ Here's a complete example of a 3-D, double-precision, in-place, complex-to-compl
     queue = cl.CommandQueue(context)
     pars.commandQueue = queue
 
-    buf_h = np.random.rand(*shape) + 1j * np.random.rand(*shape)
+    rng = np.random.default_rng()
+    buf_h = rng.random(shape) + 1j * rng.random(shape)
     buf = cla.to_device(queue, buf_h)
     pars.buffer = buf.data
 
     app.append(-1, pars)
     queue.finish()
 
+    assert np.max(np.abs(buf.get() / np.fft.fftn(buf_h) - 1)) < 1e-12
+
+As apparent in the above example, |vkfft|_ specifies plan sizes (and array strides) in the reverse order of (C-style, row-major) array shapes.
+(This is an artifact of using pointers to C arrays for inputs that can vary in length and maintaining that the first entry denote the contiguous array axis for transforms of any dimension.)
+Outside of the low-level wrapper, :mod:`pycl_fft` adheres to :mod:`numpy`-like semantics, and :class:`~pycl_fft.vkfft.Transform` handles this translation automatically.
 
 .. automodule:: pycl_fft.vkfft

@@ -68,7 +68,8 @@ def test_vkfft_bindings(ctx_factory):
     pars = LaunchParams()
     pars.commandQueue = queue
 
-    x = np.random.rand(*shape) + 1j * np.random.rand(*shape)
+    rng = np.random.default_rng()
+    x = rng.random(shape) + 1j * rng.random(shape)
     ary = cla.to_device(queue, x)
     pars.buffer = ary.data
 
@@ -126,9 +127,10 @@ def test_clfft_bindings(ctx_factory):
     assert plan.output_layout == clf.Layout.COMPLEX_INTERLEAVED
 
     queue = cl.CommandQueue(ctx)
-    plan.bake([queue])
+    plan.bake(queue)
 
-    x = np.random.rand(*shape) + 1j * np.random.rand(*shape)
+    rng = np.random.default_rng()
+    x = rng.random(shape) + 1j * rng.random(shape)
     ary = cla.to_device(queue, x)
     evts = plan.enqueue_transform(
         clf.Direction.FORWARD, [queue], None, [ary.data], None, None)
