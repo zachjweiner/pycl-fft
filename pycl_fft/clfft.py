@@ -219,7 +219,19 @@ Constants
 """
 
 
-setup_data = SetupData()
+class clFFTError(RuntimeError):
+    pass
+
+
+def _get_error_code(e):
+    return Status(int(e.args[0])).name
+
+
+try:
+    setup_data = SetupData()
+except RuntimeError as e:
+    raise clFFTError(_get_error_code(e))
+
 torn_down = False
 
 
@@ -236,9 +248,29 @@ class Plan(_Plan):
             super().__init__(context, dimension, shape)
         except RuntimeError as e:
             self.initialized = False
-            raise RuntimeError(Status(int(e.args[0])).name)
+            raise clFFTError(_get_error_code(e))
 
         self.initialized = True
+
+    def __setattr__(self, __name, __value):
+        try:
+            return super().__setattr__(__name, __value)
+        except RuntimeError as e:
+            raise clFFTError(_get_error_code(e))
+
+    def __getattribute__(self, __name):
+        try:
+            return super().__getattribute__(__name)
+        except RuntimeError as e:
+            raise clFFTError(_get_error_code(e))
+
+    def bake(self, queues):
+        if isinstance(queues, cl.CommandQueue):
+            queues = [queues]
+        try:
+            return super().bake(queues)
+        except RuntimeError as e:
+            raise clFFTError(_get_error_code(e))
 
     def __call__(self, forward, input, output=None, temp=None):
         """
@@ -293,7 +325,7 @@ class Plan(_Plan):
             events = self.enqueue_transform(
                 direction, queues, wait_for, inputs, outputs, temp_buffer)
         except RuntimeError as e:
-            raise RuntimeError(Status(int(e.args[0])).name)
+            raise RuntimeError(_get_error_code(e))
 
         for ary, evt in zip(input, events):
             ary.add_event(evt)
@@ -308,7 +340,10 @@ class Plan(_Plan):
         # been called
         global torn_down
         if self.initialized and not torn_down:
-            self.destroy()
+            try:
+                self.destroy()
+            except RuntimeError as e:
+                raise clFFTError(_get_error_code(e))
 
 
 def to_no_offset(ary):
