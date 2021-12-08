@@ -15,12 +15,16 @@ To this end, |vkfft|_'s and |clfft|_'s public APIs are exposed using :mod:`pybin
 Relatively slim wrappers classes handle the somewhat cumbersome configuration process, which then enable a set of :mod:`numpy.fft`/:mod:`scipy.fft`-like functions to compute transforms.
 
 All basic transform types are supported for arbitrary dimensions (up to three, as supported by the underlying libraries) and sizes, for both in- and out-of-place mode.
-The |vkfft|_ backend supports arbitrary buffer offsets (|clfft|_ itself does not support offsets).
+Buffer offsets are also supported.
 Currently, no wrappers exist to perform convolutions with |vkfft|_, though one may use the low-level bindings to do so exactly as with |vkfft|_ directly.
+|clfft|_ callbacks also have yet to be implemented.
 
-To install, simply clone the source and run ``pip install .`` or ::
+Installation
+------------
 
-    pip install git+https://github.com/zachjweiner/pycl-fft.git
+To install, simply clone the source (with ``--recurse-submodules``) and run ``pip install .`` or ::
+
+    pip install git+https://github.com/zachjweiner/pycl-fft.git#egg=pycl_fft
 
 which will install :mod:`numpy` and :mod:`pyopencl` if needed.
 The |vkfft|_ header is bundled and its wrappers will be built automatically.
@@ -30,7 +34,7 @@ Therefore, the simplest way to enable |clfft|_ support is to simply install in a
 environment::
 
     conda install -c conda-forge clfft
-    pip install git+https://github.com/zachjweiner/pycl-fft.git
+    pip install git+https://github.com/zachjweiner/pycl-fft.git#egg=pycl_fft
 
 The tests require :mod:`pytest` and |scipy|_.
 
