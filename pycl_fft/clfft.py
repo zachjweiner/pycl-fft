@@ -272,7 +272,7 @@ class Plan(_Plan):
         except RuntimeError as e:
             raise clFFTError(_get_error_code(e))
 
-    def __call__(self, forward, input, output=None, temp=None):
+    def __call__(self, forward, input, output=None, temp=None, wait_for=None):
         """
         Convenience wrapper to :meth:`enqueue_transform` for use with
         :class:`pyopencl.array.Array`\\ s.
@@ -286,12 +286,20 @@ class Plan(_Plan):
             by |clfft|_.
             Defaults to *None* (in which case |clfft|_ allocates when needed).
 
+        :arg wait_for: A :class:`list` of :class:`pyopencl.Event`\\ s whose
+            completion the transform will wait for before executing.
+
         The ``queues`` are determined by those attached to each ``input``, and
         all of their :attr:`~pyopencl.array.Array.events` are passed
         to ``wait_for``.
 
         :returns: A :class:`list` of :class:`pyopencl.Event`\\ s, one per
             passed :class:`pyopencl.CommandQueue`.
+
+        Events are handled in the style of :mod:`pyopencl`\\ : events attached to
+        the ``input`` arrays are added to ``wait_for``, and the events returned by
+        this method are also appended to the appropriate ``output`` array's
+        :attr:`~pyopencl.array.Array.events` list.
 
         .. note::
 
@@ -313,7 +321,7 @@ class Plan(_Plan):
         inputs = [ary.base_data for ary in input]
         outputs = None if output is None else [ary.base_data for ary in output]
 
-        wait_for = []
+        wait_for = [] if wait_for is None else wait_for
         for ary in input:
             wait_for.extend(ary.events)
 
@@ -333,6 +341,8 @@ class Plan(_Plan):
         if outputs is not None:
             for ary, evt in zip(output, events):
                 ary.add_event(evt)
+
+        return events
 
     def __del__(self):
         # apparently atexit-registered functions can be called before all plans

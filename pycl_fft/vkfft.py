@@ -272,6 +272,13 @@ class Transform:
             allocations, even when needed (for or out-of-place mode), instead raising
             :class:`ValueError`\\ s.
             The user must supply these arrays as needed.
+
+        .. note::
+
+            Until |vkfft|_ implements event handling, this method enforces
+            synchronization by calling
+            :meth:`pyopencl.CommandQueue.finish`\\ for the ``input`` array's
+            queue before and after invoking the transform.
         """
 
         # FIXME: optimize pars creation
