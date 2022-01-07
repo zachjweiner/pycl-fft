@@ -70,6 +70,7 @@ def test_transforms(ctx_factory, shape, precision, type, backend):
     nbits = {"single": 32, "double": 64}[precision]
     if type == "c2c":
         dtype = np.dtype(f"complex{2*nbits}")
+        y_dtype = dtype
         forward = clf.fftn
         backward = clf.ifftn
         scipy_forward = sp.fftn
@@ -78,12 +79,15 @@ def test_transforms(ctx_factory, shape, precision, type, backend):
     else:
         dtype = np.dtype(f"float{nbits}")
         if type == "r2c":
+            from pycl_fft import r2c_dtype_map
+            y_dtype = r2c_dtype_map[dtype]
             forward = clf.rfftn
             backward = clf.irfftn
             scipy_forward = sp.rfftn
             scipy_backward = sp.irfftn
             call_kwargs = {}
         else:
+            y_dtype = dtype
             forward = clf.dctn
             backward = clf.idctn
             scipy_forward = sp.dctn
@@ -92,16 +96,16 @@ def test_transforms(ctx_factory, shape, precision, type, backend):
 
     print(f"{type=}, dtype={dtype.name}, {shape=}, {backend=}")
 
-    from numpy.random import default_rng
-    rng = default_rng()
+    rng = np.random.default_rng(seed=979234)
 
-    x_h = rng.random(shape).astype(dtype)
+    x_h = rng.uniform(-1/2, 1/2, shape)
     if dtype.kind == "c":
-        x_h += 1j * (rng.random(shape).astype(dtype))
+        x_h = x_h + 1j * rng.uniform(-1/2, 1/2, shape)
+    # compute reference transforms in double precision
     y_h = scipy_forward(x_h, **call_kwargs, norm="backward")
 
     x = cla.empty(queue, (3,)+shape, dtype)
-    y = cla.empty(queue, (3,)+y_h.shape, y_h.dtype)
+    y = cla.empty(queue, (3,)+y_h.shape, y_dtype)
 
     # forward transforms
 
@@ -112,15 +116,15 @@ def test_transforms(ctx_factory, shape, precision, type, backend):
         max_rtol *= 1e3
 
     # test automatic construction of required arrays
-    x[0] = x_h
+    x[0] = x_h.astype(dtype)
     out = forward(x[0], **call_kwargs)
     max_err, avg_err = get_rerr(out.get(), y_h)
     print(f"forward:\t{max_err=:.3e}\t{avg_err=:.3e}")
     assert avg_err < avg_rtol, avg_err
     assert max_err < max_rtol, max_err
 
-    # test offsets: set y_h to CL result and test with lower tols
-    y_h = out.get()
+    # test offsets: compare to CL result and test with lower tols
+    y_ref = out.get()
     max_rtol = 1e-14 if precision == "double" else 1e-6
     avg_rtol = 1e-15 if precision == "double" else 1e-7
 
@@ -135,13 +139,13 @@ def test_transforms(ctx_factory, shape, precision, type, backend):
         for iy in range(y.shape[0]):
             x[:] = 0
             y[:] = 0
-            x[ix] = x_h
+            x[ix] = x_h.astype(dtype)
 
             if invalid_offset_check(x[ix], y[iy]):
                 continue
 
             _ = forward(x[ix], y[iy], **call_kwargs)
-            max_err, avg_err = get_rerr(y_h, y[iy].get())
+            max_err, avg_err = get_rerr(y_ref, y[iy].get())
             assert avg_err < avg_rtol, avg_err
             assert max_err < max_rtol, max_err
 
@@ -162,7 +166,7 @@ def test_transforms(ctx_factory, shape, precision, type, backend):
 
     # transform returns proper view of x_pad
     x_pad = forward(x_pad, x_pad, **call_kwargs)
-    max_err, avg_err = get_rerr(y_h, x_pad.get())
+    max_err, avg_err = get_rerr(y_ref, x_pad.get())
     assert avg_err < avg_rtol, avg_err
     assert max_err < max_rtol, max_err
 
@@ -179,15 +183,15 @@ def test_transforms(ctx_factory, shape, precision, type, backend):
         avg_rtol *= 10
 
     # test automatic construction of required arrays
-    y[0] = y_h
+    y[0] = y_h.astype(y_dtype)
     out = backward(y[0], **call_kwargs)
     max_err, avg_err = get_rerr(out.get(), x_h)
     print(f"backward\t{max_err=:.3e}\t{avg_err=:.3e}\n")
     assert avg_err < avg_rtol, avg_err
     assert max_err < max_rtol, max_err
 
-    # test offsets: set y_h to CL result and test with lower tols
-    x_h = out.get()
+    # test offsets: compare to CL result and test with lower tols
+    x_ref = out.get()
     max_rtol = 1e-14 if precision == "double" else 1e-5
     avg_rtol = 1e-15 if precision == "double" else 1e-6
 
@@ -195,21 +199,21 @@ def test_transforms(ctx_factory, shape, precision, type, backend):
         for iy in range(y.shape[0]):
             x[:] = 0
             y[:] = 0
-            y[iy] = y_h
+            y[iy] = y_h.astype(y_dtype)
 
             if invalid_offset_check(x[ix], y[iy]):
                 continue
 
             _ = backward(y[iy], x[ix], **call_kwargs)
-            max_err, avg_err = get_rerr(x_h, x[ix].get())
+            max_err, avg_err = get_rerr(x_ref, x[ix].get())
             assert max_err < max_rtol, max_err
             assert avg_err < avg_rtol, avg_err
 
     # test in-place
-    x_pad[...] = y_h
+    x_pad[...] = y_h.astype(y_dtype)
     # transform returns proper view of x_pad
     x_pad = backward(x_pad, x_pad, **call_kwargs)
-    max_err, avg_err = get_rerr(x_h, x_pad.get()[slc])
+    max_err, avg_err = get_rerr(x_ref, x_pad.get()[slc])
     assert avg_err < avg_rtol, avg_err
     assert max_err < max_rtol, max_err
 
