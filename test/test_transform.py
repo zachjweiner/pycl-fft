@@ -41,21 +41,26 @@ precisions = ["single", "double"]
 types = ["c2c", "r2c", 1, 2, 3, 4]
 _vkfft_types = [("vkfft", typ) for typ in types]
 backends_types = [("clfft", typ) for typ in ("c2c", "r2c")] + _vkfft_types
-shapes = [
-    (128,),
-    # (2176,),
-    # (4096,),
-    (64, 64),
-    (384, 512),
-    (64, 64, 64),
-    (32, 48, 26),
+shapes_axes = [
+    ((128,), None),
+    ((4, 128,), (1,)),
+    ((8, 4,), (0,)),
+    # ((2176,), None),
+    # ((4096,), None),
+    ((64, 64), None),
+    ((384, 512), None),
+    ((64, 64, 64), None),
+    ((32, 48, 26), None),
+    ((2, 8, 10, 4), (1, 2, 3)),
+    ((2, 8, 10, 4), (1, 3)),
+    ((2, 8, 10, 4), (3,)),
 ]
 
 
-@pytest.mark.parametrize("shape", shapes)
+@pytest.mark.parametrize("shape, axes", shapes_axes)
 @pytest.mark.parametrize("precision", precisions)
 @pytest.mark.parametrize("backend, type", backends_types)
-def test_transforms(ctx_factory, shape, precision, type, backend):
+def test_transforms(ctx_factory, shape, axes, precision, type, backend):
     # the Transform cache hangs on to contexts, which pile up when running pytest
     # and exceed OpenCL limits on simultaneous contexts as well as RAM
     clf.clear_cache()  # pylint: disable=E1101
@@ -93,8 +98,9 @@ def test_transforms(ctx_factory, shape, precision, type, backend):
             scipy_forward = sp.dctn
             scipy_backward = sp.idctn
             call_kwargs = dict(type=type)
+    call_kwargs["axes"] = axes
 
-    print(f"{type=}, dtype={dtype.name}, {shape=}, {backend=}")
+    print(f"{type=}, dtype={dtype.name}, {shape=}, {axes=}, {backend=}")
 
     rng = np.random.default_rng(seed=979234)
 
@@ -106,6 +112,28 @@ def test_transforms(ctx_factory, shape, precision, type, backend):
 
     x = cla.empty(queue, (3,)+shape, dtype)
     y = cla.empty(queue, (3,)+y_h.shape, y_dtype)
+
+    # for invalid axes specification, check that unsupported configs raise
+    # and return early
+    if backend == "clfft" and axes is not None:
+        if len(shape) == 4:
+            valid_axes = ((1, 2, 3),)
+        else:
+            all = tuple(range(len(shape)))
+            valid_axes = (all, all[1:])
+        if axes not in valid_axes:
+            with pytest.raises(ValueError):
+                out = forward(x[0], **call_kwargs)
+            with pytest.raises(ValueError):
+                out = backward(y[0], **call_kwargs)
+            return
+    if type in ("c2r", "r2c") and axes is not None:
+        if len(shape) - 1 not in axes:
+            with pytest.raises(ValueError):
+                out = forward(x[0], **call_kwargs)
+            with pytest.raises(ValueError):
+                out = backward(y[0], **call_kwargs)
+            return
 
     # forward transforms
 
@@ -282,9 +310,10 @@ if __name__ == "__main__":
     context = cl.create_some_context()
 
     for backend, type in backends_types:
-        for shape in shapes:
+        for shape, axes in shapes_axes:
             for precision in precisions:
-                test_transforms(lambda: context, shape, precision, type, backend)
+                test_transforms(
+                    lambda: context, shape, axes, precision, type, backend)
 
     for backend in ["clfft", "vkfft"]:
         test_caching(lambda: context, backend)
