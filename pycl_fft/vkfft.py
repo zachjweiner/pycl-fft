@@ -199,7 +199,7 @@ class Transform:
         self.config.FFTdim = len(shape)
         self.config.size = shape[::-1]
         if axes is not None:
-            omit_dims = [int(i in axes) for i in range(len(shape))][::-1]
+            omit_dims = [int(i not in axes) for i in range(len(shape))][::-1]
             self.config.omitDimension = omit_dims
 
         self.config.specifyOffsetsAtLaunch = True
