@@ -16,8 +16,10 @@ Relatively slim wrappers classes handle the somewhat cumbersome configuration pr
 
 All basic transform types are supported for arbitrary dimensions (up to three, as supported by the underlying libraries) and sizes, for both in- and out-of-place mode.
 Buffer offsets are also supported.
+Batched transforms are supported to the same extent that each backend does.
 Currently, no wrappers exist to perform convolutions with |vkfft|_, though one may use the low-level bindings to do so exactly as with |vkfft|_ directly.
 |clfft|_ callbacks also have yet to be implemented.
+
 
 Installation
 ------------

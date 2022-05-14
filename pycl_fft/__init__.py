@@ -60,6 +60,13 @@ returns a real array with last axis two longer than strictly needed to hold the
 actual output.
 Consult the |vkfft|_ or |clfft|_ documentation for further details.
 
+Batching is supported in a similar manner to :func:`scipy.fft.fftn` via the
+``axes`` keyword argument.
+The |vkfft|_ backend supports array dimensions up to four and batching along any
+axis (excluding the first axis for four-dimensional arrays and also the last axis
+for real-to-complex/complex-to-real transforms).
+The |clfft|_ backend only supports batching along the first axis.
+
 Both the |vkfft|_ and |clfft|_ backends are supported, which one may choose
 between by passing ``backend="vkfft"`` (the default) or ``backend="clfft"``.
 
@@ -107,45 +114,73 @@ def get_transform_class(backend):
         raise NotImplementedError(f"Transforms for backend {backend}.")
 
 
+def _process_shape_and_axes(shape, axes):
+    """
+    :returns: shape, axes, nbatch
+    """
+
+    if axes is None:
+        # if invalid,
+        return shape, axes, 1
+    elif len(axes) > 3:
+        raise ValueError(
+            "FFTs with dimension greater than three are unsupported.")
+    elif 0 in axes:
+        if len(shape) == 4:
+            raise ValueError(
+                "Can't transform along first dimension of 4D arrays.")
+        return shape, axes, 1
+    else:
+        axes = tuple(ax - 1 for ax in axes)
+        return shape[1:], axes, shape[0]
+
+
 def fftn(input: cla.Array, output: cla.Array = None, temp: cla.Array = None,
-         allocator=None, backend=None):
+         allocator=None, backend=None, axes: tuple = None):
     if output is None:
         output = cla.empty_like(input, allocator=allocator)
 
+    shape, axes, nbatch = _process_shape_and_axes(input.shape, axes)
     Transform = get_transform_class(backend)
     transform = Transform(
-        input.context, input.shape, input.dtype, in_place=is_in_place(input, output))
+        input.context, shape, input.dtype, in_place=is_in_place(input, output),
+        axes=axes, nbatch=nbatch)
 
     return transform.forward(input=input, output=output, temp=temp)
 
 
 def ifftn(input: cla.Array, output: cla.Array = None, temp: cla.Array = None,
-          allocator=None, backend=None):
+          allocator=None, backend=None, axes: tuple = None):
     if output is None:
         output = cla.empty_like(input, allocator=allocator)
 
+    shape, axes, nbatch = _process_shape_and_axes(input.shape, axes)
     Transform = get_transform_class(backend)
     transform = Transform(
-        input.context, input.shape, input.dtype, in_place=is_in_place(input, output))
+        input.context, shape, input.dtype, in_place=is_in_place(input, output),
+        axes=axes, nbatch=nbatch)
 
     return transform.backward(input=input, output=output, temp=temp)
 
 
 def rfftn(input: cla.Array, output: cla.Array = None, temp: cla.Array = None,
-          allocator=None, backend=None):
+          allocator=None, backend=None, axes: tuple = None):
     in_place = is_in_place(input, output)
     cdtype = r2c_dtype_map[input.dtype]
-    cshape = get_r2c_output_shape(input.shape, in_place=in_place)
-    shape = input.shape[:]
+
+    shape, axes, nbatch = _process_shape_and_axes(input.shape, axes)
+    cshape = get_r2c_output_shape(shape, in_place=in_place)
     if in_place:
         shape = shape[:-1] + (shape[-1] - 2,)
 
     if output is None:
-        output = cla.empty(input.queue, cshape, cdtype, allocator=allocator)
+        output = cla.empty(
+            input.queue, (nbatch,)+cshape, cdtype, allocator=allocator)
 
     Transform = get_transform_class(backend)
     transform = Transform(
-        input.context, shape, input.dtype, in_place=in_place, type="r2c")
+        input.context, shape, input.dtype, in_place=in_place, type="r2c",
+        axes=axes, nbatch=nbatch)
 
     result = transform.forward(input=input, output=output, temp=temp)
     if in_place:
@@ -155,19 +190,23 @@ def rfftn(input: cla.Array, output: cla.Array = None, temp: cla.Array = None,
 
 
 def irfftn(input: cla.Array, output: cla.Array = None, temp: cla.Array = None,
-           allocator=None, backend=None):
+           allocator=None, backend=None, axes: tuple = None):
     in_place = is_in_place(input, output)
     rdtype = c2r_dtype_map[input.dtype]
-    shape = get_c2r_output_shape(input.shape)
+
+    shape, axes, nbatch = _process_shape_and_axes(input.shape, axes)
+    shape = get_c2r_output_shape(shape)
 
     if output is None:
-        output = cla.empty(input.queue, shape, rdtype, allocator=allocator)
+        output = cla.empty(
+            input.queue, (nbatch,)+shape, rdtype, allocator=allocator)
     if not in_place and temp is None:
         temp = cla.empty_like(input, allocator=allocator)
 
     Transform = get_transform_class(backend)
     transform = Transform(
-        input.context, shape, rdtype, in_place=in_place, type="c2r")
+        input.context, shape, rdtype, in_place=in_place, type="c2r",
+        axes=axes, nbatch=nbatch)
 
     result = transform.backward(input=input, output=output, temp=temp)
     if in_place:
@@ -177,31 +216,33 @@ def irfftn(input: cla.Array, output: cla.Array = None, temp: cla.Array = None,
 
 
 def dctn(input: cla.Array, output: cla.Array = None, type: int = 2,
-         temp: cla.Array = None, allocator=None, backend=None):
+         temp: cla.Array = None, allocator=None, backend=None, axes: tuple = None):
     if output is None:
         output = cla.empty_like(input, allocator=allocator)
 
     if backend is not None and backend != "vkfft":
         raise NotImplementedError("Only the vkfft backend supports dctn.")
 
+    shape, axes, nbatch = _process_shape_and_axes(input.shape, axes)
     transform = pycl_fft.vkfft.Transform(
-        input.context, input.shape, input.dtype, in_place=is_in_place(input, output),
-        type=type)
+        input.context, shape, input.dtype, in_place=is_in_place(input, output),
+        type=type, axes=axes, nbatch=nbatch)
 
     return transform.forward(input=input, output=output, temp=temp)
 
 
 def idctn(input: cla.Array, output: cla.Array = None, type: int = 2,
-          temp: cla.Array = None, allocator=None, backend=None):
+          temp: cla.Array = None, allocator=None, backend=None, axes: tuple = None):
     if output is None:
         output = cla.empty_like(input, allocator=allocator)
 
     if backend is not None and backend != "vkfft":
         raise NotImplementedError("Only the vkfft backend supports dctn.")
 
+    shape, axes, nbatch = _process_shape_and_axes(input.shape, axes)
     transform = pycl_fft.vkfft.Transform(
-        input.context, input.shape, input.dtype, in_place=is_in_place(input, output),
-        type=type)
+        input.context, shape, input.dtype, in_place=is_in_place(input, output),
+        type=type, axes=axes, nbatch=nbatch)
 
     return transform.backward(input=input, output=output, temp=temp)
 

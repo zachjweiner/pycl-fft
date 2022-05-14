@@ -383,6 +383,9 @@ class Transform:
         output (and that out-of-place complex-to-real transforms require another
         temporary array on top of that).
 
+    :arg nbatch: The number of batches for batched transforms.
+        Defaults to ``1``.
+
     :arg norm: Whether to normalize the inverse transform.
         Defaults to *False*.
 
@@ -402,10 +405,18 @@ class Transform:
     """
 
     def __init__(self, ctx: cl.Context, shape: tuple, dtype, type="c2c",
-                 in_place: bool = False, norm: str = None, **kwargs):
+                 in_place: bool = False, axes: tuple = None, nbatch: int = 1,
+                 norm: str = None, **kwargs):
+        if axes is not None and axes != tuple(range(len(shape))):
+            # not a documented argument for clfft.Transform because its behavior
+            # is unsupported. only present as a check for input from the
+            # high-level interface
+            raise ValueError(
+                "clFFT only supports batching over the first axis.")
+
         self.plan = Plan(ctx, len(shape), shape[::-1])
 
-        self.plan.batch_size = 1
+        self.plan.batch_size = nbatch
 
         self.in_place = in_place
         if in_place:
@@ -420,13 +431,19 @@ class Transform:
         if type == "c2c":
             self.plan.input_strides = get_c_strides(shape)[::-1]
             self.plan.output_strides = get_c_strides(shape)[::-1]
+            self.plan.input_distance = np.prod(shape)
+            self.plan.output_distance = np.prod(shape)
         elif type == "r2c":
             self.plan.input_strides = get_c_strides(rshape)[::-1]
             self.plan.output_strides = get_c_strides(cshape)[::-1]
             self.plan.input_strides = self.plan.input_strides
+            self.plan.input_distance = np.prod(rshape)
+            self.plan.output_distance = np.prod(cshape)
         elif type == "c2r":
             self.plan.input_strides = get_c_strides(cshape)[::-1]
             self.plan.output_strides = get_c_strides(rshape)[::-1]
+            self.plan.input_distance = np.prod(cshape)
+            self.plan.output_distance = np.prod(rshape)
 
         dtype = np.dtype(dtype)
         if dtype in (np.float64, np.complex128):

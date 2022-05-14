@@ -158,6 +158,9 @@ class Transform:
         Defaults to *None*, in which case transforms are performed over all axes of
         the specified ``shape``.
 
+    :arg nbatch: The number of batches for batched transforms.
+        Defaults to ``1``.
+
     :arg norm: Whether to normalize the inverse transform.
         Defaults to *False*.
 
@@ -177,8 +180,8 @@ class Transform:
     """
 
     def __init__(self, ctx: cl.Context, shape: tuple, dtype, type="c2c",
-                 in_place: bool = False, axes: tuple = None, norm: bool = False,
-                 **kwargs):
+                 in_place: bool = False, axes: tuple = None, nbatch: int = 1,
+                 norm: bool = False, **kwargs):
 
         # scenarios
         # 1. destroy input, subsequent transforms can modify output
@@ -198,7 +201,12 @@ class Transform:
         self.config = Configuration()
         self.config.FFTdim = len(shape)
         self.config.size = shape[::-1]
+        self.config.numberBatches = nbatch
         if axes is not None:
+            if type in ("r2c", "c2r") and len(shape) - 1 not in axes:
+                raise ValueError(
+                    "VkFFT does not support omitting last axis of "
+                    f"{type} transforms.")
             omit_dims = [int(i not in axes) for i in range(len(shape))][::-1]
             self.config.omitDimension = omit_dims
 
