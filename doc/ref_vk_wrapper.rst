@@ -34,7 +34,6 @@ Here's a complete example of a 3-D, double-precision, in-place, complex-to-compl
     context = cl.create_some_context()
     config.context = context
     config.device = config.context.devices[0]
-    config.platform = config.device.platform
 
     shape = (64, 64, 64)
     config.FFTdim = len(shape)

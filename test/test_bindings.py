@@ -36,21 +36,16 @@ def get_rerr(a, b):
 def test_vkfft_bindings(ctx_factory):
     ctx = ctx_factory()
     device = ctx.devices[0]
-    platform = device.platform
     queue = cl.CommandQueue(ctx)
 
     from pycl_fft.vkfft import Configuration, Application, LaunchParams
     c = Configuration()
 
     # check that uninitialized CL objects return None
-    assert c.platform is None
     assert c.device is None
     assert c.context is None
 
     # check that CL objects are wrapped correctly
-    c.platform = platform
-    assert c.platform == platform
-
     c.device = device
     assert c.device == device
 

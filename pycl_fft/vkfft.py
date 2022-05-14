@@ -241,7 +241,6 @@ class Transform:
 
         self.config.context = ctx
         self.config.device = ctx.devices[0]
-        self.config.platform = self.config.device.platform
 
         for key, value in kwargs.items():
             setattr(self.config, key, value)
