@@ -4,5 +4,52 @@ requires = [
     "wheel",
     "pybind11>=2.8.0",
 ]
-
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+exclude  = ["src*", "VkFFT"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra --durations=30 --tb=native"
+
+[tool.pylint.main]
+recursive = true
+jobs = 4
+ignore = [".git", "__pycache__", "build", "dist"]
+extension-pkg-allow-list = ["pycl_fft._vkfft", "pycl_fft._clfft"]
+
+[tool.pylint."messages control"]
+disable = "all"
+enable = "E,F,W0511"
+
+[tool.pylint.REPORTS]
+output-format = "colorized"
+
+[project]
+name = "pycl_fft"
+version = "2021.1"
+license = {file = "LICENSE"}
+description = "PyOpenCL-based bindings to OpenCL FFT libraries"
+readme = "README.rst"
+authors = [
+    {name = "Zachary J Weiner"}
+]
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
+    "Environment :: GPU",
+]
+dependencies = [
+    "numpy>=1.18.5",
+    "pyopencl",
+]
+
+[project.urls]
+homepage = "https://github.com/zachjweiner/pycl-fft"
+source = "https://github.com/zachjweiner/pycl-fft"
+documentation = "https://pycl-fft.readthedocs.io/en/latest/"

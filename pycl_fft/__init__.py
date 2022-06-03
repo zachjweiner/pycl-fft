@@ -25,9 +25,9 @@ import pyopencl.array as cla
 from pycl_fft.util import (
     r2c_dtype_map, c2r_dtype_map, get_r2c_output_shape, get_c2r_output_shape,
     is_in_place)
-import pycl_fft.vkfft  # noqa
+import pycl_fft.vkfft
 try:
-    import pycl_fft.clfft  # noqa
+    import pycl_fft.clfft
 except ModuleNotFoundError:
     pass
 
