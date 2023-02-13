@@ -16,7 +16,7 @@ addopts = "-ra --durations=30 --tb=native"
 [tool.pylint.main]
 recursive = true
 jobs = 4
-ignore = [".git", "__pycache__", "build", "dist"]
+ignore = [".git", "__pycache__", "build", "dist", "VkFFT"]
 extension-pkg-allow-list = ["pycl_fft._vkfft", "pycl_fft._clfft"]
 
 [tool.pylint."messages control"]

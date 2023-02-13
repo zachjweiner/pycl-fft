@@ -50,6 +50,8 @@ def get_config():
         extra_link_args = ["-Wl,-framework,OpenCL"]
     elif "linux" in sys.platform:
         libraries = ["OpenCL"]
+    else:
+        raise NotImplementedError("Windows")
 
     include_dirs.append("VkFFT/vkFFT/")
 
