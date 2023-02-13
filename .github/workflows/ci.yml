@@ -13,12 +13,12 @@ jobs:
     name: Flake8
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
-      - uses: actions/setup-python@v1
+      - uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: "3.11"
       - name: Main Script
         run: |
           pip install flake8 flake8-quotes flake8-bugbear
@@ -30,13 +30,13 @@ jobs:
       run:
         shell: bash -l {0}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - uses: conda-incubator/setup-miniconda@v2
         with:
           auto-update-conda: true
-          python-version: '3.10'
+          python-version: "3.11"
           environment-file: .test-conda-env-py3.yml
           miniforge-version: latest
       - name: Conda info
@@ -46,7 +46,7 @@ jobs:
       - name: Main Script
         run: |
           pip install -e .
-          pylint --rcfile=setup.cfg --disable W0511 pycl_fft/*.py test/test_*.py
+          pylint --disable W0511 .
   pytest:
     name: Pytest
     runs-on: ubuntu-latest
@@ -54,13 +54,13 @@ jobs:
       run:
         shell: bash -l {0}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       - uses: conda-incubator/setup-miniconda@v2
         with:
           auto-update-conda: true
-          python-version: '3.10'
+          python-version: "3.11"
           environment-file: .test-conda-env-py3.yml
           miniforge-version: latest
       - name: Conda info
